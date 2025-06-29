@@ -1,0 +1,96 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - main # 또는 master 등 주 브랜치 이름
+  workflow_dispatch: # 수동 실행 옵션
+
+env:
+  # Docker Hub 사용자 이름 또는 다른 레지스트리 경로로 변경하세요.
+  # GitHub Secrets에 DOCKERHUB_USERNAME을 설정하는 것이 좋습니다.
+  BACKEND_IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME || 'yourdockerhubusername' }}/gemini-cli-backend
+  FRONTEND_IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME || 'yourdockerhubusername' }}/gemini-cli-frontend
+
+jobs:
+  build_and_push_backend:
+    name: Build and Push Backend Image
+    runs-on: ubuntu-latest
+    # Dockerfile 경로에 맞게 working-directory 설정 또는 context 수정
+    # defaults:
+    #   run:
+    #     working-directory: ./packages/backend # Dockerfile이 해당 컨텍스트를 기준으로 작성되었다면
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        # PR이 아니고, Docker Hub 사용자 이름과 토큰이 Secret에 설정된 경우에만 실행
+        if: github.event_name != 'pull_request' && format('{0}{1}', secrets.DOCKERHUB_USERNAME, secrets.DOCKERHUB_TOKEN) != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: . # Monorepo 루트에서 Dockerfile을 실행하므로 context는 루트
+          file: ./packages/backend/Dockerfile # Dockerfile 경로 명시
+          # PR이 아니고, Secret이 설정된 경우에만 push
+          push: ${{ github.event_name != 'pull_request' && format('{0}{1}', secrets.DOCKERHUB_USERNAME, secrets.DOCKERHUB_TOKEN) != '' }}
+          tags: |
+            ${{ env.BACKEND_IMAGE_NAME }}:latest
+            ${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build_and_push_frontend:
+    name: Build and Push Frontend Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: github.event_name != 'pull_request' && format('{0}{1}', secrets.DOCKERHUB_USERNAME, secrets.DOCKERHUB_TOKEN) != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./packages/frontend/Dockerfile
+          push: ${{ github.event_name != 'pull_request' && format('{0}{1}', secrets.DOCKERHUB_USERNAME, secrets.DOCKERHUB_TOKEN) != '' }}
+          tags: |
+            ${{ env.FRONTEND_IMAGE_NAME }}:latest
+            ${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy_placeholder:
+    name: Deploy to Production (Placeholder)
+    needs: [build_and_push_backend, build_and_push_frontend]
+    runs-on: ubuntu-latest
+    # main 브랜치에 직접 푸시되었을 때만 실행 (PR 제외)
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && format('{0}{1}', secrets.DOCKERHUB_USERNAME, secrets.DOCKERHUB_TOKEN) != ''
+    steps:
+      - name: Simulate Deployment
+        run: |
+          echo "Simulating deployment of backend image: ${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}"
+          echo "Simulating deployment of frontend image: ${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}"
+          echo "Actual deployment steps would go here."
+          echo "For example, using gcloud CLI to deploy to Google Cloud Run:"
+          echo "gcloud run deploy <your-backend-service> --image ${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }} --region <your-region> --project <your-project-id> --platform managed --allow-unauthenticated"
+          echo "gcloud run deploy <your-frontend-service> --image ${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }} --region <your-region> --project <your-project-id> --platform managed --allow-unauthenticated"
+      - name: Post-Deployment Steps
+        run: echo "Deployment simulation successful."

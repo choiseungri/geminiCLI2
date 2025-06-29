@@ -1,0 +1,20 @@
+{
+  "name": "gemini-cli-web-ui",
+  "version": "1.0.0",
+  "description": "A web interface for gemini-cli",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "workspaces": [
+    "packages/backend",
+    "packages/frontend"
+  ],
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}
